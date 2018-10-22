@@ -35,6 +35,7 @@ gggHHHiii
 DEFAULT_SYMBOLS = '123456789'
 
 log_start_time = time.time()
+log_next_time = log_start_time
 rand = random.Random(0)
 
 
@@ -321,8 +322,12 @@ def has_unique_solution(board):
 # Given a board, iterate through the solutions.
 def backtrack_solutions(initial_board):
     backlog = collections.deque([initial_board])
+    i_cnt=0
     while backlog:
+        i_cnt+=1
         board = backlog.pop()
+        if can_log_sec():
+            log('i: {}, backtrack backlog: {}\n{}'.format(i_cnt, len(backlog), board))
         signature=str(board)
         if not board.is_valid():
             continue
@@ -350,9 +355,18 @@ def load_template_file(path):
     return template, symbols
 
 
+def can_log_sec():
+    global log_next_time
+    t = time.time()
+    if t >= log_next_time:
+        log_next_time += 1.
+        return True
+    return False
+
+
 def log(message):
     dt = time.time() - log_start_time
-    print('{:.1f}\t{}'.format(dt, message), file=sys.stderr)
+    print('{:.1f}:\t{}'.format(dt, message), file=sys.stderr)
 
 
 def get_options():
@@ -376,7 +390,8 @@ def main():
     initial_board = board_from_template(template, symbols)
     log('Find first solution')
     board = next(backtrack_solutions(initial_board))
-    log('Got first solution, will remove fields')
+    log('Got first solution:\n{}'.format(board))
+    log('Now will remove fields')
     drilled_board = drill_board(board, cutoff=opts.cutoff)
     print(drilled_board)
 
