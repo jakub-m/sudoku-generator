@@ -4,11 +4,12 @@
 
 import collections
 import itertools
+import random
 import sys
 import time
 
 # Empty field is a placeholder in the template that is not a part of the Board.
-EMPTY_FIELD = ' '
+EMPTY_FIELD = '.'
 
 # Unknown value in a field.
 UNKNOWN_FIELD = '-'
@@ -32,6 +33,7 @@ BOARD_SYMBOLS = '123456789'
 
 
 log_start_time = time.time()
+rand = random.Random(0)
 
 
 class Board:
@@ -75,7 +77,9 @@ class Board:
         if not next_keys:
             return
         next_field = sorted(next_keys)[0]
-        for symbol in sorted(self.symbols):
+        # Without shuffling the boards are repetitive and boring.
+        next_symbols = shuffle(self.symbols)
+        for symbol in next_symbols:
             yield self._copy_and_set(next_field, symbol)
     
     def _copy_and_set(self, coord, symbol):
@@ -109,11 +113,11 @@ class Board:
         # sufficient to check the affected segments during _copy_and_set
         # operation.
         for seg in self.segments:
-            if not self._is_segmetnt_valid(seg):
+            if not self._is_segment_valid(seg):
                 return False
         return True
 
-    def _is_segmetnt_valid(self, segment):
+    def _is_segment_valid(self, segment):
         symbols_so_far = set()
         for coord in segment.coords:
             symbol = self._filled.get(coord)
@@ -254,6 +258,12 @@ def iter_disjoint_indices(line):
         yield indices
 
 
+def shuffle(coll):
+    shuffled = list(coll)
+    rand.shuffle(shuffled)
+    return shuffled
+
+
 def log(message):
     dt = int(time.time() - log_start_time)
     print('{}\t{}'.format(dt, message), file=sys.stderr)
@@ -278,8 +288,10 @@ def main():
         if not board.is_valid():
             continue
         if board.is_full():
+            print()
             print('found one!')
             print(board)
+            break
         backlog.extend(board.iter_next_boards())
 
 
