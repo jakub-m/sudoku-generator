@@ -2,6 +2,8 @@
 
 '''Generator of sudoku boards of different size and difficulty.'''
 
+import collections
+import itertools
 import sys
 
 EMPTY_FIELD = '.'
@@ -57,7 +59,9 @@ def board_from_template(template):
     segments_rows = list(iter_segments_for_rows(height, width, grid))
     segments_cols = list(iter_segments_for_cols(height, width, grid))
     validate_two_segments(segments_rows, segments_cols)
-
+    segments_symbols = list(iter_segments_for_symbols(height, width, grid))
+    validate_two_segments(segments_symbols, segments_rows)
+    validate_two_segments(segments_symbols, segments_cols)
 
 
 def template_to_grid(template):
@@ -115,6 +119,19 @@ def iter_segments_for_cols(height, width, grid):
         disjoint_indices = list(iter_disjoint_indices(line))
         for indices in disjoint_indices:
             yield Segment([(i, i_col) for i in indices])
+
+
+def iter_segments_for_symbols(height, width, grid):
+    '''Iterate segments based on actual symbol.'''
+    segments_by_symbol = collections.defaultdict(list)
+    for (i_row, i_col) in itertools.product(range(height), range(width)):
+        coord = (i_row, i_col)
+        symbol = grid[coord]
+        if symbol is EMPTY_FIELD:
+            continue
+        segments_by_symbol[symbol].append(coord)
+    for s in segments_by_symbol:
+        yield Segment(segments_by_symbol[s])
 
 
 def iter_disjoint_indices(line):
