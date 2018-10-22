@@ -195,7 +195,7 @@ def template_to_grid(template):
     height = len(lines)
     widths = set(len(s) for s in lines)
     if len(widths) != 1:
-        raise ValueError('Rows have different lenghts. Lengths: {}'.format(widths))
+        raise ValueError('Rows have different lenghts. Lengths: {}. Didn\'t you forget to use EMPTY_FIELD symbol "{}"?'.format(widths, EMPTY_FIELD))
     width = sorted(widths)[0]
     grid = {}
     for i_row, line in enumerate(lines):
