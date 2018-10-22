@@ -1,7 +1,8 @@
 #!/usr/bin/env python3.6
 
 '''Generator of sudoku boards of different size and difficulty. The
-implementation is very UNOPTIMAL CPU and memory wise.'''
+implementation is very UNOPTIMAL CPU and memory wise. In particular, it puts
+large pressure on GC.'''
 
 import collections
 import itertools
@@ -74,7 +75,7 @@ class Board:
         '''Iterate on the "next" boards w.r.t. to the current one. A next board
         is a board with a next field filled with one of the symbols. The next
         boards are not necessarily valid.'''
-        next_keys = self._all_coords - self._filled.keys()
+        next_keys = self._all_coords - self.get_filled_fields()
         if not next_keys:
             return
         next_field = sorted(next_keys)[0]
@@ -100,6 +101,20 @@ class Board:
                      symbols=self.symbols,
                      all_coords=self._all_coords,
                      filled=new_filled)
+
+    def copy_and_remove(self, coord):
+        '''Copies the board and removes a symbol at coord.'''
+        if coord not in self._filled:
+            raise ValueError('Coord to remove {} not filled'.format(coord))
+        new_filled=self._filled.copy()
+        del new_filled[coord]
+        return Board(height=self.height,
+                     width=self.width,
+                     segments=self.segments,
+                     symbols=self.symbols,
+                     all_coords=self._all_coords,
+                     filled=new_filled)
+
 
     def is_full(self):
         '''Check if the board has all the fields filled. It does not mean that
@@ -128,6 +143,9 @@ class Board:
                 return False
             symbols_so_far.add(symbol)
         return True
+
+    def get_filled_fields(self):
+        return self._filled.keys()
 
 
 class Segment:
@@ -259,10 +277,30 @@ def iter_disjoint_indices(line):
         yield indices
 
 
-def shuffle(coll):
-    shuffled = list(coll)
-    rand.shuffle(shuffled)
-    return shuffled
+def drill_board(board):
+    '''Drill holes in the board. That is, remove fields from the board until
+    there is no unique solution. This strategy leads to fairly easy boards.'''
+    while True:
+        to_remove = shuffle(board.get_filled_fields())[0]
+        board = board.copy_and_remove(to_remove)
+        if not has_unique_solution(board):
+            break
+        print(board)
+        print()
+
+
+def has_unique_solution(board):
+    it = backtrack_solutions(board)
+    next(it)
+    try:
+        next(it)
+    except StopIteration:
+        # Backtracking will break at second next() because there is no next
+        # solution.
+        return True
+    # If the backtracking didn't fail, then it means that there are at least
+    # two other solutions.
+    return False
 
 
 # Given a board, iterate through the solutions.
@@ -278,16 +316,26 @@ def backtrack_solutions(initial_board):
         backlog.extend(board.iter_next_boards())
 
 
+def shuffle(coll):
+    shuffled = list(coll)
+    rand.shuffle(shuffled)
+    return shuffled
+
+
 def log(message):
-    dt = int(time.time() - log_start_time)
-    print('{}\t{}'.format(dt, message), file=sys.stderr)
+    dt = time.time() - log_start_time
+    print('{:.1f}\t{}'.format(dt, message), file=sys.stderr)
 
 
 def main():
+    log('Initializing board')
     initial_board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
-    for b in backtrack_solutions(initial_board):
-        print(b)
-        print()
+    log('Find first solution')
+    board = next(backtrack_solutions(initial_board))
+    log('Got first solution, will remove fields')
+    drill_board(board)
+
+
 
 if __name__=="__main__":
     main()
