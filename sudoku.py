@@ -2,11 +2,14 @@
 
 '''Generator of sudoku boards of different size and difficulty. The
 implementation is very UNOPTIMAL CPU and memory wise. In particular, it puts
-large pressure on GC.'''
+large pressure on GC. A cache to lookup if an item has a know solution(s) would
+dramatically improve performance.'''
 
+import argparse
 import collections
 import itertools
 import random
+import string
 import sys
 import time
 
@@ -17,7 +20,7 @@ EMPTY_FIELD = '.'
 UNKNOWN_FIELD = '-'
 
 # Template of the board. "." stands for empty field
-BOARD_TEMPLATE='''
+DEFAULT_TEMPLATE='''
 aaaBBBccc
 aaaBBBccc
 aaaBBBccc
@@ -28,11 +31,6 @@ gggHHHiii
 gggHHHiii
 gggHHHiii
 '''
-
-# Symbols allowed on the board. They do not need to match the symbols in the
-# board template.
-BOARD_SYMBOLS = '123456789'
-
 
 log_start_time = time.time()
 rand = random.Random(0)
@@ -280,9 +278,9 @@ def iter_disjoint_indices(line):
         yield indices
 
 
-def drill_board(initial_board):
+def drill_board(initial_board, cutoff):
     '''Drill holes in the board. That is, remove fields from the board until
-    there is no unique solution. It never stops (must be terminated by hand).'''
+    there is no unique solution. It may never stop (must be terminated by hand).'''
     backlog = collections.deque([initial_board])
     min_board = initial_board
     while backlog:
@@ -293,14 +291,15 @@ def drill_board(initial_board):
         if len(board.get_filled_fields()) < len(min_board.get_filled_fields()):
             # Store the board with that has the least number of fields filled,
             # but still has minimal solution.
-            print('backlog {} drill score: {} {:.1f}%'.format(len(backlog), len(board.get_filled_fields()), 100.0*(len(board.get_filled_fields()))/board.get_area()))
-            print(board)
-            print()
+            fillness = float(len(board.get_filled_fields()))/board.get_area()
+            log('drill backlog {}, score {} {:.1f}%'.format(len(backlog), len(board.get_filled_fields()), fillness * 100.0))
             min_board = board
+            if fillness <= cutoff:
+                break
         for field_to_remove in shuffle(board.get_filled_fields()):
             new_board = board.copy_and_remove(field_to_remove)
             backlog.append(new_board)
-    print(min_board)
+    return min_board
 
 
 def has_unique_solution(board):
@@ -341,13 +340,31 @@ def log(message):
     print('{:.1f}\t{}'.format(dt, message), file=sys.stderr)
 
 
+def get_options():
+    p = argparse.ArgumentParser(description='sudoku generator')
+    p.add_argument('-t', '--template', dest='template_file',
+                   help='path to template file')
+    p.add_argument('-s', '--n-symbols', dest='n_symbols', default=9,
+                   help='number of symbols to be used')
+    p.add_argument('-c', '--cutoff', dest='cutoff', type=float, default=0.50,
+                   help='cutoff threshold of filled fields to stop looking for solution')
+    return p.parse_args()
+
 def main():
+    opts = get_options()
     log('Initializing board')
-    initial_board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
+    if opts.template_file is None:
+        template = DEFAULT_TEMPLATE
+    else:
+        with open(path) as h:
+            template = h.read().strip()
+    symbols = string.hexdigits[:opts.n_symbols]
+    initial_board = board_from_template(template, symbols)
     log('Find first solution')
     board = next(backtrack_solutions(initial_board))
     log('Got first solution, will remove fields')
-    drill_board(board)
+    drilled_board = drill_board(board, cutoff=opts.cutoff)
+    print(drilled_board)
 
 
 
