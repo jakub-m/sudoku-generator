@@ -48,7 +48,7 @@ class Board:
     empty. A Section is full if all the Fields of that Section are non-empty.
     '''
 
-    def __init__(self, height, width, segments, symbols, all_coords=None, filled=None):
+    def __init__(self, height, width, segments, symbols, all_coords=None, filled=None, parent=None):
         '''segments are all the Segments composing the Board. The Board does
         not have notion of rows, colums or any kind of areas, only Segments.'''
         self.height, self.width = height, width
@@ -60,6 +60,9 @@ class Board:
         # default value of UNKNOWN_FIELD. NOTE: this can be OPTIMIZED
         # memorywise, since the next board will copy this field.
         self._filled = {} if filled is None else filled
+        # Parent is needed only for optimization, to track solutions of the
+        # boards.
+        self.parent = None
 
     def _get_all_coords_from_segments(self, segments):
         '''Return coordinates of all the fields form all the segments.'''
@@ -67,6 +70,16 @@ class Board:
 
     def get_area(self):
         return self.width * self.height
+
+    def get_signature(self):
+        return tuple((coord, self._filled[coord]) for coord in sorted(self._filled.keys()))
+
+    def iter_descendants(self):
+        '''Iterate through descendants.'''
+        b = self.parent
+        while b is not None:
+            yield b
+            b = b.parent
 
     def __str__(self):
         lines = [[EMPTY_FIELD] * self.width for _ in range(self.height)]
@@ -104,7 +117,8 @@ class Board:
                      segments=self.segments,
                      symbols=self.symbols,
                      all_coords=self._all_coords,
-                     filled=new_filled)
+                     filled=new_filled,
+                     parent=self)
 
     def copy_and_remove(self, coord):
         '''Copies the board and removes a symbol at coord.'''
@@ -117,7 +131,8 @@ class Board:
                      segments=self.segments,
                      symbols=self.symbols,
                      all_coords=self._all_coords,
-                     filled=new_filled)
+                     filled=new_filled,
+                     parent=self)
 
 
     def is_full(self):
@@ -174,6 +189,68 @@ class Segment:
             seen.add(cc)
 
 
+class Tracker:
+    '''
+    A helper class holding lots of backtracking state, so it is possible to do
+    a fast lookup if a board has a solution or not. It is not necesary for
+    backtracking, but it helps with performance.
+    '''
+    def __init__(self):
+        self._cache_has_unique = set()
+        self._cache_does_not_have_unique = set()
+        self._cnt_lookup = 0
+        self._cnt_hit = 0
+
+    def has_unique_solution(self, board):
+        self._cnt_lookup += 1
+        signature = board.get_signature()
+        if signature in self._cache_has_unique:
+            self._cnt_hit += 1
+            return True
+        if signature in self._cache_does_not_have_unique:
+            self._cnt_hit += 1
+            return False
+
+        it = self.backtrack_solutions(board)
+        next(it)
+        try:
+            next_board = next(it)
+        except StopIteration:
+            # Backtracking will break at second next() because there is no next
+            # solution. This means that the board has a unique solution. It
+            # does NOT imply that the parents have unique solution though.
+            self._cache_has_unique.add(signature)
+            return True
+        # If the backtracking didn't fail, then it means that there are at
+        # least two other solutions. This also means that the parent does not
+        # have unique solution.
+        self._cache_does_not_have_unique.add(signature)
+        for p in board.iter_descendants():
+            sign = p.get_signature()
+            self._cache_does_not_have_unique.add(sign)
+        return False
+    
+    # Given a board, iterate through the solutions.
+    def backtrack_solutions(self, initial_board):
+        backlog = collections.deque([initial_board])
+        i_cnt=0
+        while backlog:
+            i_cnt+=1
+            board = backlog.pop()
+            if can_log_sec():
+                log('backtrack i: {}, backlog: {}, cache hit: {:.0f}%\n{}'.format(i_cnt, len(backlog), 100 * self._cnt_hit / (self._cnt_lookup+1), board))
+            signature=str(board)
+            if not board.is_valid():
+                # This obard is not valid, so it is not a solution and any
+                # other next board won't have a solution.
+                continue
+            if board.is_full():
+                # This board is complete, because it is full and it is valid.
+                # This is a solution.
+                yield board
+            backlog.extend(board.iter_next_boards())
+
+
 def board_from_template(template, symbols):
     height, width, grid = template_to_grid(template)
     segments_rows = list(iter_segments_for_rows(height, width, grid))
@@ -184,7 +261,7 @@ def board_from_template(template, symbols):
     validate_two_segments(segments_symbols, segments_cols)
     all_segments = [seg for segments in [segments_rows, segments_cols, segments_symbols] for seg in segments ]
     validate_segments_length(all_segments, symbols)
-    return Board(height, width, all_segments, symbols)
+    return Board(height, width, all_segments, symbols, parent=None)
 
 
 def template_to_grid(template):
@@ -281,14 +358,14 @@ def iter_disjoint_indices(line):
         yield indices
 
 
-def drill_board(initial_board, cutoff):
+def drill_board(tracker, initial_board, cutoff):
     '''Drill holes in the board. That is, remove fields from the board until
     there is no unique solution. It may never stop (must be terminated by hand).'''
     backlog = collections.deque([initial_board])
     min_board = initial_board
     while backlog:
         board = backlog.pop()
-        if not has_unique_solution(board):
+        if not tracker.has_unique_solution(board):
             # The board does not have unique solution, so we discard it.
             continue
         if len(board.get_filled_fields()) < len(min_board.get_filled_fields()):
@@ -303,37 +380,6 @@ def drill_board(initial_board, cutoff):
             new_board = board.copy_and_remove(field_to_remove)
             backlog.append(new_board)
     return min_board
-
-
-def has_unique_solution(board):
-    it = backtrack_solutions(board)
-    next(it)
-    try:
-        next(it)
-    except StopIteration:
-        # Backtracking will break at second next() because there is no next
-        # solution.
-        return True
-    # If the backtracking didn't fail, then it means that there are at least
-    # two other solutions.
-    return False
-
-
-# Given a board, iterate through the solutions.
-def backtrack_solutions(initial_board):
-    backlog = collections.deque([initial_board])
-    i_cnt=0
-    while backlog:
-        i_cnt+=1
-        board = backlog.pop()
-        if can_log_sec():
-            log('i: {}, backtrack backlog: {}\n{}'.format(i_cnt, len(backlog), board))
-        signature=str(board)
-        if not board.is_valid():
-            continue
-        if board.is_full():
-            yield board
-        backlog.extend(board.iter_next_boards())
 
 
 def shuffle(coll):
@@ -389,10 +435,11 @@ def main():
     log('Symbols: {}'.format(symbols))
     initial_board = board_from_template(template, symbols)
     log('Find first solution')
-    board = next(backtrack_solutions(initial_board))
+    tracker = Tracker()
+    board = next(tracker.backtrack_solutions(initial_board))
     log('Got first solution:\n{}'.format(board))
     log('Now will remove fields')
-    drilled_board = drill_board(board, cutoff=opts.cutoff)
+    drilled_board = drill_board(tracker, board, cutoff=opts.cutoff)
     print(drilled_board)
 
 
