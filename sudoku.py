@@ -6,19 +6,23 @@ import collections
 import itertools
 import sys
 
-EMPTY_FIELD = '.'
+# Empty field is a placeholder in the template that is not a part of the Board.
+EMPTY_FIELD = ' '
+
+# Unknown value in a field.
+UNKNOWN_FIELD = '?'
 
 # Template of the board. "." stands for empty field
 BOARD_TEMPLATE='''
-111222333
-111222333
-111222333
-444555666
-444555666
-444555666
-777888999
-777888999
-777888999
+aaaBBBccc
+aaaBBBccc
+aaaBBBccc
+DDDeeeFFF
+DDDeeeFFF
+DDDeeeFFF
+gggHHHiii
+gggHHHiii
+gggHHHiii
 '''
 
 # Symbols allowed on the board. They do not need to match the symbols in the
@@ -41,6 +45,23 @@ class Board:
         self.height, self.width = height, width
         self.segments = segments
         self.symbols = symbols
+        # All the coordinates from all the segments.
+        self._all_coords = self._get_all_coords(segments)
+        # Map of coordinates with values. Coordinates not in the map have
+        # default value of UNKNOWN_FIELD. NOTE: this can be OPTIMIZED
+        # memorywise, since the next board will copy this field.
+        self._filled = {}
+
+    def _get_all_coords(self, segments):
+        '''Return coordinates of all the fields form all the segments.'''
+        return sorted(set(coord for seg in segments for coord in seg.coords))
+
+    def __str__(self):
+        lines = [[EMPTY_FIELD] * self.width for _ in range(self.height)]
+        for (i_row, i_col) in self._all_coords:
+            symbol = self._filled.get((i_row, i_col), UNKNOWN_FIELD)
+            lines[i_row][i_col] = symbol
+        return '\n'.join(''.join(line) for line in lines)
 
 
 class Segment:
@@ -82,7 +103,7 @@ def template_to_grid(template):
     '''Return height, width, grid. Height stands for the range of the first
     parameter of the grid (row). Weight is range of the second parameter of the
     grid (col).'''
-    lines = [s.strip() for s in template.split()]
+    lines = [s.strip() for s in template.split('\n')]
     lines = [s for s in lines if s]
     height = len(lines)
     widths = set(len(s) for s in lines)
@@ -150,6 +171,8 @@ def iter_segments_for_symbols(height, width, grid):
         symbol = grid[coord]
         if symbol is EMPTY_FIELD:
             continue
+        if symbol is UNKNOWN_FIELD:
+            raise ValueError('Cannot use "{}" in the template.'.format(UNKNOWN_FIELD))
         segments_by_symbol[symbol].append(coord)
     for s in segments_by_symbol:
         yield Segment(segments_by_symbol[s])
@@ -175,8 +198,8 @@ def log(message):
 
 
 def main():
-    template = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
-    print(template)
+    board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
+    print(board)
 
 
 if __name__=="__main__":
