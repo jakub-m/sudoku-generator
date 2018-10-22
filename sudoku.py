@@ -64,6 +64,9 @@ class Board:
         '''Return coordinates of all the fields form all the segments.'''
         return set(coord for seg in segments for coord in seg.coords)
 
+    def get_area(self):
+        return self.width * self.height
+
     def __str__(self):
         lines = [[EMPTY_FIELD] * self.width for _ in range(self.height)]
         for (i_row, i_col) in self._all_coords:
@@ -277,16 +280,27 @@ def iter_disjoint_indices(line):
         yield indices
 
 
-def drill_board(board):
+def drill_board(initial_board):
     '''Drill holes in the board. That is, remove fields from the board until
-    there is no unique solution. This strategy leads to fairly easy boards.'''
-    while True:
-        to_remove = shuffle(board.get_filled_fields())[0]
-        board = board.copy_and_remove(to_remove)
+    there is no unique solution. It never stops (must be terminated by hand).'''
+    backlog = collections.deque([initial_board])
+    min_board = initial_board
+    while backlog:
+        board = backlog.pop()
         if not has_unique_solution(board):
-            break
-        print(board)
-        print()
+            # The board does not have unique solution, so we discard it.
+            continue
+        if len(board.get_filled_fields()) < len(min_board.get_filled_fields()):
+            # Store the board with that has the least number of fields filled,
+            # but still has minimal solution.
+            print('backlog {} drill score: {} {:.1f}%'.format(len(backlog), len(board.get_filled_fields()), 100.0*(len(board.get_filled_fields()))/board.get_area()))
+            print(board)
+            print()
+            min_board = board
+        for field_to_remove in shuffle(board.get_filled_fields()):
+            new_board = board.copy_and_remove(field_to_remove)
+            backlog.append(new_board)
+    print(min_board)
 
 
 def has_unique_solution(board):
