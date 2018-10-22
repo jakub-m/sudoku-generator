@@ -5,6 +5,7 @@
 import collections
 import itertools
 import sys
+import time
 
 # Empty field is a placeholder in the template that is not a part of the Board.
 EMPTY_FIELD = ' '
@@ -28,6 +29,9 @@ gggHHHiii
 # Symbols allowed on the board. They do not need to match the symbols in the
 # board template.
 BOARD_SYMBOLS = '123456789'
+
+
+log_start_time = time.time()
 
 
 class Board:
@@ -89,6 +93,35 @@ class Board:
                      symbols=self.symbols,
                      all_coords=self._all_coords,
                      filled=new_filled)
+
+    def is_full(self):
+        '''Check if the board has all the fields filled. It does not mean that
+        it is valid.'''
+        return len(self._all_coords) == len(self._filled)
+
+    def is_valid(self):
+        '''Check if the board is valid. A valid board is a board with no
+        repeated values per segment. A valid board does not imply that the
+        board is complete. To be complete, the board must be valid and full.'''
+        # NOTE: this is not optimal. It checks all the segments. It would be
+        # sufficient to check the affected segments during _copy_and_set
+        # operation.
+        for seg in self.segments:
+            if not self._is_segmetnt_valid(seg):
+                return False
+        return True
+
+    def _is_segmetnt_valid(self, segment):
+        symbols_so_far = set()
+        for coord in segment.coords:
+            symbol = self._filled.get(coord)
+            if symbol is None:
+                continue
+            if symbol in symbols_so_far:
+                return False
+            symbols_so_far.add(symbol)
+        return True
+
 
 class Segment:
     def __init__(self, coords):
@@ -220,14 +253,25 @@ def iter_disjoint_indices(line):
 
 
 def log(message):
-    print(message, file=sys.stderr)
+    dt = int(time.time() - log_start_time)
+    print('{}\t{}'.format(dt, message), file=sys.stderr)
 
 
 def main():
-    board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
-    for b in board.iter_next_boards():
-        print()
-        print(b)
+    initial_board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
+    backlog = collections.deque([initial_board])
+    cnt_iter = 0
+    while backlog:
+        board = backlog.pop()
+        if cnt_iter % 50*1000 == 0:
+            log('i: {}, backlog: {}\n{}'.format(cnt_iter, len(backlog), board))
+        cnt_iter += 1
+        if not board.is_valid():
+            continue
+        if board.is_full():
+            print('found one!')
+            print(board)
+        backlog.extend(board.iter_next_boards())
 
 
 if __name__=="__main__":
