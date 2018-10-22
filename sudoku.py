@@ -10,7 +10,7 @@ import sys
 EMPTY_FIELD = ' '
 
 # Unknown value in a field.
-UNKNOWN_FIELD = '?'
+UNKNOWN_FIELD = '-'
 
 # Template of the board. "." stands for empty field
 BOARD_TEMPLATE='''
@@ -39,22 +39,22 @@ class Board:
     empty. A Section is full if all the Fields of that Section are non-empty.
     '''
 
-    def __init__(self, height, width, segments, symbols):
+    def __init__(self, height, width, segments, symbols, all_coords=None, filled=None):
         '''segments are all the Segments composing the Board. The Board does
         not have notion of rows, colums or any kind of areas, only Segments.'''
         self.height, self.width = height, width
         self.segments = segments
-        self.symbols = symbols
+        self.symbols = set(symbols)
         # All the coordinates from all the segments.
-        self._all_coords = self._get_all_coords(segments)
+        self._all_coords = self._get_all_coords(segments) if all_coords is None else all_coords
         # Map of coordinates with values. Coordinates not in the map have
         # default value of UNKNOWN_FIELD. NOTE: this can be OPTIMIZED
         # memorywise, since the next board will copy this field.
-        self._filled = {}
+        self._filled = {} if filled is None else filled
 
     def _get_all_coords(self, segments):
         '''Return coordinates of all the fields form all the segments.'''
-        return sorted(set(coord for seg in segments for coord in seg.coords))
+        return set(coord for seg in segments for coord in seg.coords)
 
     def __str__(self):
         lines = [[EMPTY_FIELD] * self.width for _ in range(self.height)]
@@ -63,6 +63,32 @@ class Board:
             lines[i_row][i_col] = symbol
         return '\n'.join(''.join(line) for line in lines)
 
+    def iter_next_boards(self):
+        '''Iterate on the "next" boards w.r.t. to the current one. A next board
+        is a board with a next field filled with one of the symbols. The next
+        boards are not necessarily valid.'''
+        candidate_fields = self._all_coords - self._filled.keys()
+        for symbol in self.symbols:
+            for coord in candidate_fields:
+                yield self._copy_and_set(coord, symbol)
+    
+    def _copy_and_set(self, coord, symbol):
+        '''Copies the current board and sets the symbol in the place indicated
+        by coord.'''
+        if coord in self._filled:
+            raise ValueError('Coord {} already filled with value "{}", tried to overwrite with "{}'.format(coord, self._filled[coord], symbol))
+        if coord not in self._all_coords:
+            raise ValueError('coordinate {} is not on the board'.format(coord))
+        if symbol not in self.symbols:
+            raise ValueError('bad symbol: {}'.format(symbol))
+        new_filled=self._filled.copy()
+        new_filled[coord] = symbol
+        return Board(height=self.height,
+                     width=self.width,
+                     segments=self.segments,
+                     symbols=self.symbols,
+                     all_coords=self._all_coords,
+                     filled=new_filled)
 
 class Segment:
     def __init__(self, coords):
@@ -199,7 +225,9 @@ def log(message):
 
 def main():
     board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
-    print(board)
+    for b in board.iter_next_boards():
+        print()
+        print(b)
 
 
 if __name__=="__main__":
