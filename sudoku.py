@@ -32,6 +32,8 @@ gggHHHiii
 gggHHHiii
 '''
 
+DEFAULT_SYMBOLS = '123456789'
+
 log_start_time = time.time()
 rand = random.Random(0)
 
@@ -335,6 +337,19 @@ def shuffle(coll):
     return shuffled
 
 
+def load_template_file(path):
+    n_symbols = 9
+    with open(path) as h:
+        lines = [s.strip() for s in h]
+    for s in lines:
+        if s.startswith('# n_symbols'):
+            n_symbols = int(s.split(' ')[2])
+    template_lines = [s for s in lines if not s.startswith('#')]
+    template = '\n'.join(template_lines)
+    symbols = string.hexdigits[:n_symbols]
+    return template, symbols
+
+
 def log(message):
     dt = time.time() - log_start_time
     print('{:.1f}\t{}'.format(dt, message), file=sys.stderr)
@@ -344,8 +359,6 @@ def get_options():
     p = argparse.ArgumentParser(description='sudoku generator')
     p.add_argument('-t', '--template', dest='template_file',
                    help='path to template file')
-    p.add_argument('-s', '--n-symbols', dest='n_symbols', default=9,
-                   help='number of symbols to be used')
     p.add_argument('-c', '--cutoff', dest='cutoff', type=float, default=0.50,
                    help='cutoff threshold of filled fields to stop looking for solution')
     return p.parse_args()
@@ -355,10 +368,11 @@ def main():
     log('Initializing board')
     if opts.template_file is None:
         template = DEFAULT_TEMPLATE
+        symbols = DEFAULT_SYMBOLS
     else:
-        with open(path) as h:
-            template = h.read().strip()
-    symbols = string.hexdigits[:opts.n_symbols]
+        template, symbols = load_template_file(opts.template_file)
+    log('Template ({}):\n{}'.format(opts.template_file, template))
+    log('Symbols: {}'.format(symbols))
     initial_board = board_from_template(template, symbols)
     log('Find first solution')
     board = next(backtrack_solutions(initial_board))
