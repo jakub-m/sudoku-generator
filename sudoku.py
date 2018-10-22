@@ -21,6 +21,10 @@ BOARD_TEMPLATE='''
 777888999
 '''
 
+# Symbols allowed on the board. They do not need to match the symbols in the
+# board template.
+BOARD_SYMBOLS = '123456789'
+
 
 class Board:
     '''A Board contains information about size of the board, information about
@@ -31,8 +35,12 @@ class Board:
     empty. A Section is full if all the Fields of that Section are non-empty.
     '''
 
-    def __init__(self):
-        pass
+    def __init__(self, height, width, segments, symbols):
+        '''segments are all the Segments composing the Board. The Board does
+        not have notion of rows, colums or any kind of areas, only Segments.'''
+        self.height, self.width = height, width
+        self.segments = segments
+        self.symbols = symbols
 
 
 class Segment:
@@ -45,6 +53,9 @@ class Segment:
     def __str__(self):
         return 'S{}'.format(self.coords)
 
+    def __len__(self):
+        return len(self.coords)
+
     def _validate(self, coords):
         '''Validate that there are no duplicates in the input parameters.'''
         seen = set()
@@ -54,7 +65,7 @@ class Segment:
             seen.add(cc)
 
 
-def board_from_template(template):
+def board_from_template(template, symbols):
     height, width, grid = template_to_grid(template)
     segments_rows = list(iter_segments_for_rows(height, width, grid))
     segments_cols = list(iter_segments_for_cols(height, width, grid))
@@ -62,6 +73,9 @@ def board_from_template(template):
     segments_symbols = list(iter_segments_for_symbols(height, width, grid))
     validate_two_segments(segments_symbols, segments_rows)
     validate_two_segments(segments_symbols, segments_cols)
+    all_segments = [seg for segments in [segments_rows, segments_cols, segments_symbols] for seg in segments ]
+    validate_segments_length(all_segments, symbols)
+    return Board(height, width, all_segments, symbols)
 
 
 def template_to_grid(template):
@@ -81,6 +95,13 @@ def template_to_grid(template):
             coord = (i_row, i_col)
             grid[coord] = c
     return height, width, grid
+
+
+def validate_segments_length(segments, symbols):
+    '''Validate that no segment is longer than the number of the symbols.'''
+    for seg in segments:
+        if len(seg) > len(symbols):
+            raise ValueError('Segment size ({}) must be at most as the number of symbols ({}), but his segment is longer: {}'.format(len(seg), len(symbols), seg))
 
 
 def validate_two_segments(segments_a, segments_b):
@@ -154,7 +175,7 @@ def log(message):
 
 
 def main():
-    template = board_from_template(BOARD_TEMPLATE)
+    template = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
     print(template)
 
 
