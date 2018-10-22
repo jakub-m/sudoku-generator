@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.6
 
-'''Generator of sudoku boards of different size and difficulty.'''
+'''Generator of sudoku boards of different size and difficulty. The
+implementation is very UNOPTIMAL CPU and memory wise.'''
 
 import collections
 import itertools
@@ -51,14 +52,14 @@ class Board:
         self.height, self.width = height, width
         self.segments = segments
         self.symbols = set(symbols)
-        # All the coordinates from all the segments.
-        self._all_coords = self._get_all_coords(segments) if all_coords is None else all_coords
+        # Set of all the coordinates from all the segments.
+        self._all_coords = self._get_all_coords_from_segments(segments) if all_coords is None else all_coords
         # Map of coordinates with values. Coordinates not in the map have
         # default value of UNKNOWN_FIELD. NOTE: this can be OPTIMIZED
         # memorywise, since the next board will copy this field.
         self._filled = {} if filled is None else filled
 
-    def _get_all_coords(self, segments):
+    def _get_all_coords_from_segments(self, segments):
         '''Return coordinates of all the fields form all the segments.'''
         return set(coord for seg in segments for coord in seg.coords)
 
@@ -264,6 +265,19 @@ def shuffle(coll):
     return shuffled
 
 
+# Given a board, iterate through the solutions.
+def backtrack_solutions(initial_board):
+    backlog = collections.deque([initial_board])
+    while backlog:
+        board = backlog.pop()
+        signature=str(board)
+        if not board.is_valid():
+            continue
+        if board.is_full():
+            yield board
+        backlog.extend(board.iter_next_boards())
+
+
 def log(message):
     dt = int(time.time() - log_start_time)
     print('{}\t{}'.format(dt, message), file=sys.stderr)
@@ -271,29 +285,9 @@ def log(message):
 
 def main():
     initial_board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
-    backlog = collections.deque([initial_board])
-    cnt_iter = 0
-    so_far = set()
-    while backlog:
-        board = backlog.pop()
-        if cnt_iter % 500*1000 == 0:
-            log('i: {}, backlog: {}'.format(cnt_iter, len(backlog)))
-        cnt_iter += 1
-        signature=str(board)
-        if signature in so_far:
-            print('ERRRR!')
-            print(signature)
-            break
-        so_far.add(signature)
-        if not board.is_valid():
-            continue
-        if board.is_full():
-            print()
-            print('found one!')
-            print(board)
-            break
-        backlog.extend(board.iter_next_boards())
-
+    for b in backtrack_solutions(initial_board):
+        print(b)
+        print()
 
 if __name__=="__main__":
     main()
