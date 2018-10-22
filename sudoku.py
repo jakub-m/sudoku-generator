@@ -71,10 +71,12 @@ class Board:
         '''Iterate on the "next" boards w.r.t. to the current one. A next board
         is a board with a next field filled with one of the symbols. The next
         boards are not necessarily valid.'''
-        candidate_fields = self._all_coords - self._filled.keys()
-        for symbol in self.symbols:
-            for coord in candidate_fields:
-                yield self._copy_and_set(coord, symbol)
+        next_keys = self._all_coords - self._filled.keys()
+        if not next_keys:
+            return
+        next_field = sorted(next_keys)[0]
+        for symbol in sorted(self.symbols):
+            yield self._copy_and_set(next_field, symbol)
     
     def _copy_and_set(self, coord, symbol):
         '''Copies the current board and sets the symbol in the place indicated
@@ -261,11 +263,18 @@ def main():
     initial_board = board_from_template(BOARD_TEMPLATE, BOARD_SYMBOLS)
     backlog = collections.deque([initial_board])
     cnt_iter = 0
+    so_far = set()
     while backlog:
         board = backlog.pop()
-        if cnt_iter % 50*1000 == 0:
-            log('i: {}, backlog: {}\n{}'.format(cnt_iter, len(backlog), board))
+        if cnt_iter % 500*1000 == 0:
+            log('i: {}, backlog: {}'.format(cnt_iter, len(backlog)))
         cnt_iter += 1
+        signature=str(board)
+        if signature in so_far:
+            print('ERRRR!')
+            print(signature)
+            break
+        so_far.add(signature)
         if not board.is_valid():
             continue
         if board.is_full():
