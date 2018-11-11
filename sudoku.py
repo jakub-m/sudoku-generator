@@ -19,6 +19,8 @@ EMPTY_FIELD = '.'
 # Unknown value in a field.
 UNKNOWN_FIELD = '-'
 
+DEFAULT_CUTOFF = 0.5
+
 # Template of the board. "." stands for empty field
 DEFAULT_TEMPLATE='''
 aaaBBBccc
@@ -397,7 +399,7 @@ def load_template_file(path):
             n_symbols = int(s.split(' ')[2])
     template_lines = [s for s in lines if not s.startswith('#')]
     template = '\n'.join(template_lines)
-    symbols = string.hexdigits[:n_symbols]
+    symbols = string.hexdigits[1:n_symbols+1]
     return template, symbols
 
 
