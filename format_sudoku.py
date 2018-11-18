@@ -3,12 +3,14 @@
 '''Convert output of sudoku generator to printable html.'''
 
 
+import argparse
 import collections
 import json
 import sys
 
 Sudoku = collections.namedtuple('Sudoku', 'symbols template board width height')
 
+EMPTY_CELL = u'-'
 
 HTML_HEADER='''
 <!DOCTYPE html>
@@ -23,9 +25,16 @@ HTML_HEADER='''
                 margin: 0;
             }
             .f {
-                float:left;
+                font-family: Helvetica;
+                font-size: 30px;
+                font-style: bold;
+
                 height: 60px;
                 width:  60px;
+                line-height: 60px;
+                text-align: center;
+                vertical-align: middle;
+                float:left;
                 border-right: 2px dotted #ddd;
                 border-bottom: 2px dotted #ddd;
             }
@@ -85,7 +94,8 @@ def validate_board(board, width, height):
     assert len(board) == (width * height), 'bad board size, should be {}'.format(width * height)
 
 
-def print_cells(sudoku):
+def print_cells(sudoku, printable_mapper):
+    '''printable_mapper is a function that maps value from board to a printable value'''
     board = parse_board_from_lines(sudoku.board)
     template = parse_board_from_lines(sudoku.template)
     validate_board(board, width=sudoku.width, height=sudoku.height)
@@ -93,7 +103,6 @@ def print_cells(sudoku):
     for i_row in range(sudoku.height):
         top_line = (i_row == 0)
         for i_col in range(sudoku.width):
-            value = board[(i_row, i_col)]
             class_map = {
                 'start_line': (i_col == 0),
                 'border_left': (i_col == 0),
@@ -102,7 +111,9 @@ def print_cells(sudoku):
                 'border_bottom': has_border(template, (i_row, i_col), (i_row+1, i_col)),
             }
             classes = sorted(k for k in class_map if class_map[k])
-            _print_cell(value, classes)
+            board_value = board[(i_row, i_col)]
+            printable_value = printable_mapper(board_value)
+            _print_cell(printable_value, classes)
 
 
 def has_border(dic, key_ref, key_other):
@@ -110,18 +121,36 @@ def has_border(dic, key_ref, key_other):
     return (key_other not in dic) or dic[key_ref] != dic[key_other]
 
 
+# def _get_printable_value(board_value):
+    # if board_value == EMPTY_CELL:
+        # return ''
+    # return board_value
+def _get_printable_value(board_value):
+    if board_value == EMPTY_CELL:
+        return ''
+    return 'ABCDEFGHIJKLMN'[int(board_value)-1]
+
+
+
 def _print_cell(value, classes):
     classes = ['f'] + classes
-    print('<div class="{}">{}</div>'.format(' '.join(classes), value))
+    print('<div class="{_classes}">{_value}</div>'.format(_classes=' '.join(classes),
+                                                          _value=value))
+
+
+def get_options():
+    p = argparse.ArgumentParser(description='Sudoku formatter')
+    p.add_argument('-j', '--json', dest='json_path', help='JSON file with sudoku board')
+    return p.parse_args()
 
 
 def main():
-    json_fname = sys.argv[1]
-    with open(json_fname) as h:
+    opts = get_options()
+    with open(opts.json_path) as h:
         sudoku = Sudoku(**json.load(h))
     sys.stderr.write('{}\n\n{}\n\n'.format(sudoku.template, sudoku.board))
     print_header()
-    print_cells(sudoku)
+    print_cells(sudoku, _get_printable_value)
     print_footer()
 
 if __name__=="__main__":
