@@ -8,7 +8,7 @@ import collections
 import json
 import sys
 
-Sudoku = collections.namedtuple('Sudoku', 'symbols template board width height')
+Sudoku = collections.namedtuple('Sudoku', 'template board width height')
 
 EMPTY_CELL = u'-'
 

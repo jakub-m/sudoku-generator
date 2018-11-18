@@ -8,6 +8,7 @@ dramatically improve performance.'''
 import argparse
 import collections
 import itertools
+import json
 import random
 import string
 import sys
@@ -84,6 +85,9 @@ class Board:
             b = b.parent
 
     def __str__(self):
+        return self.pretty_string()
+
+    def pretty_string(self):
         lines = [[EMPTY_FIELD] * self.width for _ in range(self.height)]
         for (i_row, i_col) in self._all_coords:
             symbol = self._filled.get((i_row, i_col), UNKNOWN_FIELD)
@@ -102,7 +106,7 @@ class Board:
         next_symbols = shuffle(self.symbols)
         for symbol in next_symbols:
             yield self._copy_and_set(next_field, symbol)
-    
+
     def _copy_and_set(self, coord, symbol):
         '''Copies the current board and sets the symbol in the place indicated
         by coord.'''
@@ -135,7 +139,6 @@ class Board:
                      all_coords=self._all_coords,
                      filled=new_filled,
                      parent=self)
-
 
     def is_full(self):
         '''Check if the board has all the fields filled. It does not mean that
@@ -231,7 +234,7 @@ class Tracker:
             sign = p.get_signature()
             self._cache_does_not_have_unique.add(sign)
         return False
-    
+
     # Given a board, iterate through the solutions.
     def backtrack_solutions(self, initial_board):
         backlog = collections.deque([initial_board])
@@ -403,6 +406,15 @@ def load_template_file(path):
     return template, symbols
 
 
+def get_printable_dict(template_string, board):
+    '''Return dict that fully describes the board and can be used later for formatting.'''
+    return dict(
+        height=board.height,
+        width=board.width,
+        template=template_string,
+        board=board.pretty_string())
+
+
 def can_log_sec():
     global log_next_time
     t = time.time()
@@ -442,7 +454,7 @@ def main():
     log('Got first solution:\n{}'.format(board))
     log('Now will remove fields')
     drilled_board = drill_board(tracker, board, cutoff=opts.cutoff)
-    print(drilled_board)
+    json.dump(get_printable_dict(template, drilled_board), fp=sys.stdout, indent=2)
 
 
 
