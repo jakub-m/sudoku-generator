@@ -24,26 +24,26 @@ HTML_HEADER='''
             }
             .f {
                 float:left;
-                height: 80px;
-                width:  80px;
+                height: 60px;
+                width:  60px;
                 border-right: 2px dotted #ddd;
                 border-bottom: 2px dotted #ddd;
             }
             .start_line {
                 clear:both;
-                border-left: 2px dotted #ddd;
+                border-left: 3px dotted #ddd;
             }
             .border_top {
-                border-top: 2px solid black !important;
+                border-top: 3px solid black !important;
             }
             .border_right {
-                border-right: 2px solid black !important;
+                border-right: 3px solid black !important;
             }
             .border_left {
-                border-left: 2px solid black !important;
+                border-left: 3px solid black !important;
             }
             .border_bottom {
-                border-bottom: 2px solid black !important;
+                border-bottom: 3px solid black !important;
             }
         </style>
     </head>
