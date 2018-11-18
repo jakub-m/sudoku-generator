@@ -39,7 +39,7 @@ DEFAULT_SYMBOLS = '123456789'
 
 log_start_time = time.time()
 log_next_time = log_start_time
-rand = random.Random(0)
+g_rand = None # Will be initialised later.
 
 
 class Board:
@@ -389,7 +389,7 @@ def drill_board(tracker, initial_board, cutoff):
 
 def shuffle(coll):
     shuffled = list(coll)
-    rand.shuffle(shuffled)
+    g_rand.shuffle(shuffled)
     return shuffled
 
 
@@ -435,11 +435,20 @@ def get_options():
                    help='path to template file')
     p.add_argument('-c', '--cutoff', dest='cutoff', type=float, default=0.50,
                    help='cutoff threshold of filled fields to stop looking for solution')
+    p.add_argument('-e', '--seed', dest='rand_seed', type=int,
+                   help='random seed')
     return p.parse_args()
 
 def main():
     opts = get_options()
     log('Initializing board')
+    if opts.rand_seed is None:
+        rand_seed = int(time.time())
+    else:
+        rand_seed = int(opts.rand_seed)
+    global g_rand
+    log('Seed: {}'.format(rand_seed))
+    g_rand = random.Random(rand_seed)
     if opts.template_file is None:
         template = DEFAULT_TEMPLATE
         symbols = DEFAULT_SYMBOLS
@@ -454,6 +463,7 @@ def main():
     log('Got first solution:\n{}'.format(board))
     log('Now will remove fields')
     drilled_board = drill_board(tracker, board, cutoff=opts.cutoff)
+    log('Drilled board:\n\n{}\n'.format(drilled_board))
     json.dump(get_printable_dict(template, drilled_board), fp=sys.stdout, indent=2)
 
 
