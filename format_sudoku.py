@@ -6,11 +6,8 @@
 import argparse
 import collections
 import json
-import random
 import string
 import sys
-
-rand = random.Random(0)
 
 Sudoku = collections.namedtuple('Sudoku', 'template board width height')
 
@@ -71,17 +68,19 @@ HTML_FOOTER='''
 class ValueConverter(object):
     '''A function that consistently maps input to output.'''
     def __init__(self, values):
+        assert len(set(values)) == len(values), 'Values should be unique, but are: ' + str(values)
         self._unused_values = list(values)
-        rand.shuffle(self._unused_values)
         self._map = {}
 
     def __call__(self, _input):
         if _input == EMPTY_CELL:
             return ''
         if _input not in self._map:
-            self._map[_input] = self._unused_values[0]
+            try:
+                self._map[_input] = self._unused_values[0]
+            except IndexError:
+                raise IndexError('No enough values! Try different value set.')
             self._unused_values = self._unused_values[1:]
-        sys.stderr.write('{} -> {}, {}\n'.format(_input, self._map[_input], self._unused_values))
         return self._map[_input]
 
 
