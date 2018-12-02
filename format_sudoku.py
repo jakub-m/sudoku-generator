@@ -6,7 +6,11 @@
 import argparse
 import collections
 import json
+import random
+import string
 import sys
+
+rand = random.Random(0)
 
 Sudoku = collections.namedtuple('Sudoku', 'template board width height')
 
@@ -63,6 +67,22 @@ HTML_FOOTER='''
     </body>
 </html>
 '''
+
+class ValueConverter(object):
+    '''A function that consistently maps input to output.'''
+    def __init__(self, values):
+        self._unused_values = list(values)
+        rand.shuffle(self._unused_values)
+        self._map = {}
+
+    def __call__(self, _input):
+        if _input == EMPTY_CELL:
+            return ''
+        if _input not in self._map:
+            self._map[_input] = self._unused_values[0]
+            self._unused_values = self._unused_values[1:]
+        sys.stderr.write('{} -> {}, {}\n'.format(_input, self._map[_input], self._unused_values))
+        return self._map[_input]
 
 
 def print_header():
@@ -121,17 +141,6 @@ def has_border(dic, key_ref, key_other):
     return (key_other not in dic) or dic[key_ref] != dic[key_other]
 
 
-# def _get_printable_value(board_value):
-    # if board_value == EMPTY_CELL:
-        # return ''
-    # return board_value
-def _get_printable_value(board_value):
-    if board_value == EMPTY_CELL:
-        return ''
-    return 'ABCDEFGHIJKLMN'[int(board_value)-1]
-
-
-
 def _print_cell(value, classes):
     classes = ['f'] + classes
     print('<div class="{_classes}">{_value}</div>'.format(_classes=' '.join(classes),
@@ -141,6 +150,8 @@ def _print_cell(value, classes):
 def get_options():
     p = argparse.ArgumentParser(description='Sudoku formatter')
     p.add_argument('-j', '--json', dest='json_path', help='JSON file with sudoku board')
+    p.add_argument('-s', '--value-set', dest='value_set', choices=['0', '1', 'a', 'A'], default='1',
+                   help='set of values')
     return p.parse_args()
 
 
@@ -148,9 +159,15 @@ def main():
     opts = get_options()
     with open(opts.json_path) as h:
         sudoku = Sudoku(**json.load(h))
+    value_converter = ValueConverter({
+        '0': string.hexdigits,
+        '1': string.hexdigits[1:],
+        'a': string.ascii_lowercase,
+        'A': string.ascii_uppercase
+        }[opts.value_set])
     sys.stderr.write('{}\n\n{}\n\n'.format(sudoku.template, sudoku.board))
     print_header()
-    print_cells(sudoku, _get_printable_value)
+    print_cells(sudoku, value_converter)
     print_footer()
 
 if __name__=="__main__":
