@@ -1,6 +1,4 @@
-#!/usr/bin/env python2.7
-
-'''Convert output of sudoku generator to printable html.'''
+#!/usr/bin/env python3
 
 
 import argparse

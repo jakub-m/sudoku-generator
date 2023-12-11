@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 
 '''Generator of sudoku boards of different size and difficulty. The
 implementation is very UNOPTIMAL CPU and memory wise. In particular, it puts
